@@ -34,11 +34,11 @@ With two keyboards attached, each keystroke carries its own `keyboard` number; t
 
 **Where it's useful:** local multiplayer games where each player has their own keyboard; macro and control surfaces (a spare keyboard or keypad that means something different from your main one); installations and kiosks; input diagnostics; anything that cares which physical device produced an input.
 
-> **Early prototype.** Run on one Windows machine with a built-in keyboard, a USB keyboard and a ZSA Moonlander typing at the same time, and in CI on GitHub's Windows runner with injected key presses; the Linux backend has been run in CI against *virtual* keyboards but never on physical hardware; hot-plugging a keyboard on Windows has been tested with the Moonlander; two identical keyboards, and everything on Linux hardware, are untested. The API will change before 1.0. There are no Python or other-language packages yet. Per-backend details are under [Backends](#backends).
+> **Early prototype.** On Windows, run on one machine with a built-in keyboard, a USB keyboard and a ZSA Moonlander typing at the same time, and in CI with injected key presses. On Linux, run on one Debian machine with a USB keyboard and the Moonlander, and in CI with virtual keyboards. Hot-plugging has been tested with the Moonlander on both. Two identical keyboards, media keys on Linux, and Linux key repeat on physical keyboards are untested. The API will change before 1.0. There are no Python or other-language packages yet. Per-backend details are under [Backends](#backends).
 >
 > Throughout this document, **Tested** means it was run on real hardware (see the limits above), **Tested (virtual)** means it was run in CI against virtual keyboards but not physical ones, **Builds** means it compiles but hasn't been run, and **Planned** or **Idea** means it doesn't exist yet.
 
-**AI disclosure:** This library was developed with very significant help from several AI tools. I have reviewed all of the code myself, but I did not step through it in a debugger, and the Linux backend has not been run on real hardware. I've done Win32 and low-level Linux device programming before and the relevant sections look sensible to me. I tested `manykey list`, `manykey watch` and `manykey-view` on Windows, found real problems, and had them fixed. Expect it to differ from hand-written code, and note that statements about how operating systems behave were written with AI assistance and are marked untested unless run on hardware. Treat it as an early prototype. How contributions are handled is described [below](#ai-use-in-development).
+**AI disclosure:** This library was developed with very significant help from several AI tools. I have reviewed all of the code myself, but I did not step through it in a debugger. I've done Win32 and low-level Linux device programming before and the relevant sections look sensible to me. I tested `manykey list`, `manykey watch` and `manykey-view` on Windows and Linux, found real problems, and had them fixed. Expect it to differ from hand-written code, and note that statements about how operating systems behave were written with AI assistance and are marked untested unless run on hardware. Treat it as an early prototype. How contributions are handled is described [below](#ai-use-in-development).
 
 ## Contents
 
@@ -155,7 +155,7 @@ manykey is organized around **backends**. A backend is the piece that talks to o
 | Backend | Platform | Status | Needs | Sees unfocused input | `OwnProcessFocused` scope | Device name / USB ids / port |
 |---|---|---|---|---|---|---|
 | [Raw Input](#windows-raw-input) | Windows | **Tested** (three real keyboards; CI with injected input) | nothing | yes | yes | name, USB ids / no port |
-| [evdev](#linux-evdev) | Linux | **Tested (virtual)** | read access to `/dev/input` | yes | no (returns an error) | name, USB ids, port |
+| [evdev](#linux-evdev) | Linux | **Tested** | read access to `/dev/input` | yes | no (returns an error) | name, USB ids, port |
 | [XInput2](#linux-other-backends) | Linux, X11 only | Planned | an X11 session | expected yes | not yet decided | expected |
 | [libinput](#linux-other-backends) | Linux | Idea | same device access as evdev | yes | no | expected |
 | [IOHIDManager](#macos) | macOS | Not started | Input Monitoring permission | | | |
@@ -176,13 +176,14 @@ manykey is organized around **backends**. A backend is the piece that talks to o
 
 ### Linux: evdev
 
-*Status: tested against virtual keyboards in CI, not yet on physical hardware.* In GitHub's Linux CI the backend found a keyboard with its kernel name and ids, reported press, repeat and release, announced a second keyboard plugged in while running, and reported both removals. The evdev backend reads the kernel's `/dev/input/event*` devices directly, on one thread per keyboard, and rescans `/proc/bus/input/devices` twice a second to notice keyboards being plugged and unplugged.
+*Status: tested on one Debian machine (X11) with a USB keyboard and a ZSA Moonlander, and in CI with virtual keyboards.* On that machine, `manykey watch` and the viewer reported both keyboards, overlapping key presses, and unplugging and replugging the Moonlander, which came back with the same `KeyboardId`. A key held while unplugging was released; a key already held while plugging in is not reported until it's released (the kernel only reports changes). Media keys and key repeat haven't been tried on physical keyboards. In GitHub's Linux CI the backend found a keyboard with its kernel name and ids, reported press, repeat and release, announced a second keyboard plugged in while running, and reported both removals. The evdev backend reads the kernel's `/dev/input/event*` devices directly, on one thread per keyboard, and rescans `/proc/bus/input/devices` twice a second to notice keyboards being plugged and unplugged.
 
 - **Needs read access to the input devices**, normally membership of the `input` group. See [Linux permissions](#linux-permissions); this is a real cost.
 - **Works under X11, Wayland and the text console**, because it doesn't talk to the display server at all. That also means it has **no idea which window has focus**, so `OwnProcessFocused` returns an error instead of silently reporting everything.
-- **What it reports:** the kernel's device name, USB ids, and the physical port. A replugged keyboard in the same port is meant to get the same `KeyboardId` back.
+- **What it reports:** the kernel's device name, USB ids, and the physical port. A keyboard replugged into the same port gets the same `KeyboardId` back (tested with the Moonlander); in a different port it gets a new one (by design; not tested).
 - **Key repeat** is reported as `Repeat`.
-- **Which devices count as keyboards** is decided by a heuristic (the kernel marks it as a keyboard and it supports key repeat). Virtual keyboards created by other software, such as remappers, can show up as keyboards too.
+- **Which devices count as keyboards** uses the same test as udev: the device has Esc, the number row and Q through D. That leaves out power buttons and laptop hotkey devices. Virtual keyboards created by other software, such as remappers, can show up as keyboards too, and so can a mouse's keyboard interface (some gaming mice have one for macro buttons, and claim every key).
+- **A keyboard with several interfaces is one keyboard,** as on Windows. Many USB keyboards expose their media and system keys, and sometimes a second key report, as extra input devices. manykey groups the interfaces of one device (same port and USB ids, plus the serial or Bluetooth address when there is one) under one `KeyboardId`, and also reads the media and system-key interfaces of those keyboards.
 
 ### Linux: other backends
 
@@ -208,7 +209,7 @@ WSL2 can't see the host machine's keyboards, so none of the real backends work i
 
 ### Keyboards
 
-Each keyboard gets a `KeyboardId`: a number that identifies it for as long as it stays connected. It is **not** persisted across runs. Whether the *same* physical keyboard gets the *same* id back after being unplugged and replugged depends on the backend and on how much identity it can see, and we haven't tested it, so don't rely on that yet. `Event::KeyboardAdded` carries a `KeyboardInfo` with what the backend knows about the device:
+Each keyboard gets a `KeyboardId`: a number that identifies it for as long as it stays connected. It is **not** persisted across runs. Whether the *same* physical keyboard gets the *same* id back after being unplugged and replugged depends on the backend and on how much identity it can see. On Linux it does when the keyboard goes back into the same port (tested with one keyboard); on Windows we haven't tested it. Don't rely on it yet. `Event::KeyboardAdded` carries a `KeyboardInfo` with what the backend knows about the device:
 
 | Field | Meaning |
 |---|---|
@@ -308,7 +309,7 @@ Reading `/dev/input/event*` normally needs membership of the `input` group (or a
 
 **Why don't my media or brightness keys show up?** Some media keys arrive as ordinary keyboard keys and are reported (play/pause, next/previous, stop, mute, volume). Other keys, brightness among them on the keyboard we tried, didn't show up at all. Our current guess is that they're sent as a different kind of HID report that the Windows backend doesn't read yet, but we haven't confirmed that. On Linux, evdev defines brightness key codes that the evdev backend maps, though we haven't tested them.
 
-**Why is there an extra "keyboard" that only produces Unknown keys?** Some devices that aren't keyboards you type on still identify themselves as keyboards to Windows: laptop hotkey and Fn controllers, for example, or other HID devices such as HID-over-I2C ones. We saw one called "HIDI2C Device". Its keys aren't ones manykey knows, so they show as `Unknown` with the raw scancode (the viewer prints it as `?0x....`). We haven't confirmed what that device was; it's a good candidate for the brightness and Fn keys that otherwise never showed up.
+**Why is there an extra "keyboard" that only produces Unknown keys?** Some devices that aren't keyboards you type on still identify themselves as keyboards: laptop hotkey and Fn controllers, for example, or other HID devices such as HID-over-I2C ones. On Windows we saw one called "HIDI2C Device". Its keys aren't ones manykey knows, so they show as `Unknown` with the raw scancode (the viewer prints it as `?0x....`). We haven't confirmed what that device was; it's a good candidate for the brightness and Fn keys that otherwise never showed up. On Linux, a gaming mouse's keyboard interface (for its macro buttons) shows up the same way.
 
 **Can it tell two identical keyboards apart?** While they're plugged in, that's the intent: each gets its own id. We haven't been able to test with two identical keyboards. Recognising which is which across runs is best-effort; see [Keyboards](#keyboards).
 
@@ -333,6 +334,8 @@ cargo run -p manykey-view
 cargo run -p manykey-view -- --focused    # only react while the viewer has focus
 cargo run -p manykey-view -- --log        # also print every event to stdout
 ```
+
+On Linux the viewer needs the same device access as the library (see [Linux permissions](#linux-permissions)), and `--focused` isn't available because the evdev backend can't tell which window has focus. If you run it with `sudo`, its preferences are saved in root's home directory rather than yours.
 
 - Pick each keyboard's form factor from its dropdown (all keys, standard, no numpad, 75%, compact, keypad-only). The choice is remembered per keyboard in `%APPDATA%\manykey\viewer.conf` (Windows) or `~/.config/manykey/viewer.conf`.
 - A key that isn't part of a keyboard's chosen form factor turns the tile border orange and is listed ("Not in this layout"): either the layout needs changing, or something unexpected is sending keys.
@@ -379,7 +382,7 @@ manykey isn't the first attempt at this problem. These are the related projects 
 
 Roughly in order, and subject to change:
 
-- Validate on real hardware: identical keyboards, replugging a keyboard (does it get its id back?), more makes of USB keyboard, and the Linux backend. Then fix what that finds, and add a `manykey doctor` command.
+- Validate on real hardware: identical keyboards, more makes of USB keyboard, and more Linux machines (media keys, Bluetooth keyboards, Wayland sessions). Then fix what that finds, and add a `manykey doctor` command.
 - Build the XInput2 backend for lower-privilege Linux use (the `backend` option already exists to select it).
 - A shared Windows backend so several `Listener`s in one process don't compete.
 - `keyboards()` for synchronous inventory, and `held_keys()` snapshots for recovering from overflow.

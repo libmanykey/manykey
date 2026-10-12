@@ -1,6 +1,6 @@
 [package]
 name = "manykey"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 description = "Receive keyboard input tagged with the physical keyboard it came from"

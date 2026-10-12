@@ -8,6 +8,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - **Godot extension (experimental):** a `ManyKeyboard` node that reports which keyboard each key came from, with signals and queries, in `bindings/godot`. Builds from source only; not yet released as an addon.
 
+## [0.1.1] - 2026-10-12
+
+### Fixed
+
+- **Linux:** a keyboard with several input interfaces (for example a ZSA Moonlander, which has two key reports) is now one keyboard with one id, as on Windows, instead of one per interface.
+- **Linux:** media and system keys sent on a keyboard's separate "Consumer Control" and "System Control" interfaces are now reported; those interfaces were previously skipped.
+- **Linux:** two identical Bluetooth keyboards on the same adapter no longer share one id.
+- **Linux:** a device counts as a keyboard by udev's test (it has Esc, the digits 0-9, and Q to D) instead of by supporting key repeat, so laptop hotkey devices such as "Eee PC WMI hotkeys" are no longer listed as keyboards.
+- **Linux:** names padded with spaces by the keyboard (`"  USB Keyboard"`) are trimmed.
+- **`manykey-view`:** builds on Linux (its windowing library's X11 and Wayland support had been switched off).
+- **`manykey` command line tool:** `--help`, an unknown command or an unknown option prints the usage text instead of opening devices first (which on Linux without permission gave an unrelated access error).
+
 ## [0.1.0] - 2026-10-10
 
 First public release: an early prototype. Only the Windows backend has been run on real keyboards; see the README's status section for exactly what has and hasn't been tested.

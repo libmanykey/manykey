@@ -7,6 +7,9 @@ while a key is held produces a release followed by its removal. Also checks that
 an unprivileged user gets a clear permission error rather than an empty list.
 
 Usage: sudo python3 ci/linux-uinput-smoke.py target/debug/manykey
+
+On a desktop, the virtual keyboards' key presses (A and B, no Enter) also reach
+whichever window has focus, so expect stray "abbb..." in your terminal.
 """
 import fcntl
 import os
@@ -30,8 +33,9 @@ class VirtualKeyboard:
     def __init__(self, name, vendor, product):
         self.fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_KEY)
-        # manykey treats devices that support key repeat as keyboards.
         fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_REP)
+        # manykey (like udev) treats devices with Esc, the digits and Q to D
+        # (codes 1 to 31) as keyboards.
         for key in range(1, 120):
             fcntl.ioctl(self.fd, UI_SET_KEYBIT, key)
         # struct uinput_user_dev: name[80], input_id, ff_effects_max, abs arrays

@@ -21,7 +21,9 @@ fn main() {
         println!("manykey {}", env!("CARGO_PKG_VERSION"));
         return;
     }
-    let cmd = args.first().cloned().unwrap_or_else(|| usage());
+    // Check the command before opening any devices, so a typo or --help gets
+    // the usage text rather than (on Linux without permission) an access error.
+    let cmd = args.first().cloned().filter(|c| c == "list" || c == "watch").unwrap_or_else(|| usage());
     let mut options = Options::default();
     let mut rest = args[1..].iter();
     while let Some(a) = rest.next() {

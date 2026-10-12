@@ -19,7 +19,7 @@ pub const MANYKEY_VERSION_MAJOR: u32 = 0;
 /// Minor version of the library this header belongs to.
 pub const MANYKEY_VERSION_MINOR: u32 = 1;
 /// Patch version of the library this header belongs to.
-pub const MANYKEY_VERSION_PATCH: u32 = 0;
+pub const MANYKEY_VERSION_PATCH: u32 = 1;
 /// The version above packed as `(major << 16) | (minor << 8) | patch`, to
 /// compare against `manykey_version()`. Before 1.0 the header and the library
 /// must agree on major.minor, i.e. `(manykey_version() >> 8) == (MANYKEY_VERSION >> 8)`:

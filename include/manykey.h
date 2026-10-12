@@ -23,7 +23,7 @@
 /*
  Patch version of the library this header belongs to.
  */
-#define MANYKEY_VERSION_PATCH 0
+#define MANYKEY_VERSION_PATCH 1
 
 /*
  The version above packed as `(major << 16) | (minor << 8) | patch`, to

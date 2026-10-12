@@ -36,8 +36,8 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Library, command line tool and doctests
         run: cargo test -p manykey
-      - name: Viewer app (Windows only, where it has been run)
-        if: runner.os == 'Windows'
+      - name: Viewer app (Windows and Linux, where it has been run)
+        if: runner.os != 'macOS'
         run: cargo test -p manykey-view
 
   # The committed C header must match what cbindgen generates, and C code must compile against it.

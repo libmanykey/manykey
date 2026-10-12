@@ -392,7 +392,7 @@ fn device_path(handle: HANDLE) -> Option<String> {
 fn run_message_loop(tx: EventSink, options: Options, ready: mpsc::Sender<io::Result<isize>>) {
     unsafe {
         let hinst = GetModuleHandleW(null());
-        let class_name: Vec<u16> = "multikeyboard_rawinput\0".encode_utf16().collect();
+        let class_name: Vec<u16> = "manykey_rawinput\0".encode_utf16().collect();
         let mut wc: WNDCLASSW = zeroed();
         wc.lpfnWndProc = Some(wndproc);
         wc.hInstance = hinst;
