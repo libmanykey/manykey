@@ -2,7 +2,9 @@
 
 A Godot extension (GDExtension) that tells your game **which physical keyboard each key press came from**. It wraps the [manykey](https://github.com/libmanykey/manykey) library, so a local multiplayer game can give every player their own keyboard.
 
-> **Status: experimental, not released yet.** It builds from source in this repository. It has been tested loading into Godot 4.7.2 on Windows, headless, with injected key presses, and not yet interactively in the editor, on Linux, or with several real keyboards. The README of the main project describes manykey's own tested and untested areas.
+![The demo on Linux with three keyboards: each has its own square, moved with its own WASD or arrow keys](../../docs/images/godot-screenshot.png)
+
+> **Status: experimental, not released yet.** It builds from source in this repository. It has been tested in Godot 4.7.2 headless: on Windows with injected key presses, and on Linux (Debian, X11) with three real keyboards, including held keys, both Shift keys and key repeat. It has not yet been tested interactively in the editor, or with several real keyboards on Windows. The README of the main project describes manykey's own tested and untested areas.
 
 ## What you get
 
@@ -51,6 +53,8 @@ Set these before the node enters the scene tree (or in the inspector); they're r
 | `include_injected` | off | Windows: also report keys injected by software (macros, remote tools) as an extra keyboard. |
 | `reclaim_registration` | off | Windows: take raw keyboard input back if another part of the process takes it over. Rarely needed. |
 
+The node's `process_mode` defaults to **Always**, so it keeps reporting keys while the game is paused (a pause menu can still use them, and events don't pile up and overflow). Set it to something else if you'd rather it went quiet.
+
 ### Keys
 
 `physical_keycode` is Godot's physical keycode: the key's *position*, so `KEY_W` is the key that's labelled W on a US keyboard, wherever it sits on the player's keyboard. Godot has a single code for Shift, Ctrl, Alt and Meta, so left and right collapse; use `hid_usage` (for example 225 for left Shift, 229 for right Shift) when you need to tell them apart. Keys Godot has no code for (some media and brightness keys) arrive as `KEY_UNKNOWN` with the raw `native_code`.
@@ -64,6 +68,8 @@ cd bindings/godot
 ./build.ps1          # Windows (PowerShell); ./build.sh on Linux
 ```
 
+Running it headless or from the command line on a fresh checkout? Import the project once first (`godot --headless --path demo --import`, or open it in the editor); until then Godot doesn't know the `ManyKeyboard` class.
+
 That compiles the extension and copies it into `demo/addons/manykey/bin/`. The first build is slow (several minutes) because gdext generates bindings for Godot's whole API; later builds take seconds. Then open `bindings/godot/demo` in Godot and run it: plug in several keyboards and each one gets its own square, moved with WASD or the arrow keys.
 
 To use it in your own project, copy `demo/addons/manykey/` (with its `bin/` folder) into your project's `addons/` folder.
@@ -74,7 +80,7 @@ The extension is compiled against Godot's 4.3 API, and Godot runs extensions bui
 
 ## Limits
 
-- **Windows** is the only platform tested. **Linux** builds the same way but is untested, and needs read access to `/dev/input` plus `global_capture` turned on (see the main project's Linux permissions notes). macOS isn't supported.
+- **Linux** needs read access to `/dev/input` and `global_capture` turned on (the demo does this). See the main project's Linux permissions notes. macOS isn't supported.
 - Exports of your game need the library for the target platform in the addon's `bin/` folder.
 - The extension isn't hot-reloadable; restart the editor after rebuilding it.
 - The node reads keys directly from the operating system, not through Godot's input system, so it doesn't feed Godot's `Input` actions or `InputEventKey`. Use its signals.

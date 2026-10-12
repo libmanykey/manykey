@@ -1,10 +1,11 @@
 //! The `ManyKeyboard` node.
 
 use crate::keymap::to_godot;
+use godot::classes::node::ProcessMode;
 use godot::classes::{INode, Node};
 use godot::obj::EngineEnum;
 use godot::prelude::*;
-use manykey::{Event, EventOrigin, KeyState, KeyboardInfo, Listener, Options, Scope};
+use manykey::{Event, EventOrigin, Key, KeyState, KeyboardInfo, Listener, Options, Scope};
 use std::collections::{BTreeMap, BTreeSet};
 
 struct Known {
@@ -28,8 +29,10 @@ pub struct ManyKeyboard {
     base: Base<Node>,
     listener: Option<Listener>,
     keyboards: BTreeMap<u64, Known>,
-    /// keyboard id -> physical keycodes currently held
-    pressed: BTreeMap<u64, BTreeSet<i32>>,
+    /// keyboard id -> keys currently held. Tracked as manykey keys, not Godot
+    /// keycodes: left and right Shift are one Godot key, so releasing one must
+    /// not make the other look released.
+    pressed: BTreeMap<u64, BTreeSet<Key>>,
     last_error: GString,
 
     /// Start listening automatically when the node enters the scene tree.
@@ -50,6 +53,10 @@ pub struct ManyKeyboard {
 #[godot_api]
 impl INode for ManyKeyboard {
     fn init(base: Base<Node>) -> Self {
+        // Keep draining manykey's queue while the game is paused, so events
+        // don't pile up and overflow (and a pause menu can still use them).
+        // A default only: the inspector or a script can change it.
+        base.to_init_gd().set_process_mode(ProcessMode::ALWAYS);
         Self {
             base,
             listener: None,
@@ -178,19 +185,24 @@ impl ManyKeyboard {
     /// Is this physical key (a Godot `Key` value) currently held on this keyboard?
     #[func]
     fn is_key_pressed(&self, keyboard_id: i64, physical_keycode: i64) -> bool {
-        self.pressed.get(&(keyboard_id as u64)).is_some_and(|keys| keys.contains(&(physical_keycode as i32)))
+        self.held_godot_keys(keyboard_id).contains(&(physical_keycode as i32))
     }
 
     /// Every physical key (as Godot `Key` values) currently held on this keyboard.
     #[func]
     fn get_pressed_keys(&self, keyboard_id: i64) -> PackedInt32Array {
-        let keys: Vec<i32> =
-            self.pressed.get(&(keyboard_id as u64)).map(|s| s.iter().copied().collect()).unwrap_or_default();
+        let keys: Vec<i32> = self.held_godot_keys(keyboard_id).into_iter().collect();
         PackedInt32Array::from(keys.as_slice())
     }
 }
 
 impl ManyKeyboard {
+    /// The Godot keycodes held on a keyboard (both Shifts held is one `KEY_SHIFT`).
+    fn held_godot_keys(&self, keyboard_id: i64) -> BTreeSet<i32> {
+        let held = self.pressed.get(&(keyboard_id as u64));
+        held.into_iter().flatten().map(|&key| to_godot(key).ord()).collect()
+    }
+
     /// Drain everything that's arrived and turn it into signals. Runs on the main thread, once per frame.
     fn pump(&mut self) {
         let Some(listener) = &self.listener else { return };
@@ -204,14 +216,18 @@ impl ManyKeyboard {
         match event {
             Event::KeyboardAdded(info) => {
                 let id = info.id.0;
+                let (name, location) = (info.name.clone(), info.location.clone().unwrap_or_default());
+                let (vendor_id, product_id) =
+                    (info.vendor_id.map_or(-1, i64::from), info.product_id.map_or(-1, i64::from));
+                // Record it first, so a handler that calls get_keyboards() sees it.
+                self.keyboards.insert(id, Known { info, connected: true });
                 self.signals().keyboard_added().emit(
                     id as i64,
-                    info.name.as_str(),
-                    info.vendor_id.map_or(-1, i64::from),
-                    info.product_id.map_or(-1, i64::from),
-                    info.location.as_deref().unwrap_or(""),
+                    name.as_str(),
+                    vendor_id,
+                    product_id,
+                    location.as_str(),
                 );
-                self.keyboards.insert(id, Known { info, connected: true });
             }
             Event::KeyboardRemoved(id) => {
                 if let Some(known) = self.keyboards.get_mut(&id.0) {
@@ -230,9 +246,9 @@ impl ManyKeyboard {
                 let code = to_godot(k.key).ord();
                 let held = self.pressed.entry(k.keyboard.0).or_default();
                 if pressed {
-                    held.insert(code);
+                    held.insert(k.key);
                 } else {
-                    held.remove(&code);
+                    held.remove(&k.key);
                 }
                 self.signals().key_event().emit(
                     k.keyboard.0 as i64,

@@ -14,6 +14,8 @@ var players := {}  # keyboard_id -> {name, color, pos, held}
 
 func _ready() -> void:
 	manykey = ManyKeyboard.new()
+	# Linux can't limit capture to the focused window; capture everything there.
+	manykey.global_capture = OS.get_name() == "Linux"
 	manykey.keyboard_added.connect(_on_keyboard_added)
 	manykey.keyboard_removed.connect(_on_keyboard_removed)
 	manykey.key_event.connect(_on_key_event)

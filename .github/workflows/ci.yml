@@ -131,3 +131,35 @@ jobs:
       - name: Clippy
         if: runner.os == 'Linux'
         run: cargo clippy -p manykey-godot --all-targets -- -D warnings
+
+  # Loads the Godot extension into a real headless Godot and types on virtual
+  # keyboards (uinput), on the oldest Godot it claims to support and a current one.
+  godot-linux:
+    name: godot extension vs virtual keyboards (Godot ${{ matrix.godot.version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        godot:
+          # Official builds, checked against the SHA-512 from each release's SHA512-SUMS.txt.
+          - version: 4.3-stable
+            sha512: fd52bb4ba8acc30ca5accd1c566d470ad7282f891ccc0995dfafabcf92bcf76280ce182bf9d80ebd885f3ed2165d01e1fc3f2928436b15498dfbd98656c2a45a
+          - version: 4.7.2-stable
+            sha512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - run: bash bindings/godot/build.sh
+      - name: Download Godot ${{ matrix.godot.version }}
+        run: |
+          zip="Godot_v${{ matrix.godot.version }}_linux.x86_64.zip"
+          curl -sSLo "$RUNNER_TEMP/$zip" "https://github.com/godotengine/godot/releases/download/${{ matrix.godot.version }}/$zip"
+          echo "${{ matrix.godot.sha512 }}  $RUNNER_TEMP/$zip" | sha512sum -c -
+          unzip -q "$RUNNER_TEMP/$zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v${{ matrix.godot.version }}_linux.x86_64" >> "$GITHUB_ENV"
+      - run: sudo modprobe uinput || true
+      - run: sudo python3 ci/linux-godot-smoke.py "$GODOT" bindings/godot/demo
