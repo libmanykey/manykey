@@ -2,7 +2,7 @@
 //!
 //! Needs read access to `/dev/input/event*` (usually the `input` group).
 //! Keyboards are discovered from `/proc/bus/input/devices`, using udev's test
-//! for a full keyboard (Esc, digits and Q to D), which separates real keyboards
+//! for a full keyboard (the first 31 key codes, Esc through S), which separates real keyboards
 //! from power buttons and the like. The interfaces of one physical keyboard are
 //! grouped and reported as one keyboard; see `parse_keyboards`.
 
@@ -192,14 +192,14 @@ impl<'a> DeviceBlock<'a> {
         self.handlers.split_whitespace().find(|h| h.starts_with("event"))
     }
 
-    /// The test udev uses for `ID_INPUT_KEYBOARD`: the device has Esc, the
-    /// number row and Q through D, which are key codes 1 to 31, the low bits of
+    /// The test udev uses for `ID_INPUT_KEYBOARD`: the device has the first 31
+    /// key codes, from Esc through S, in the low bits of
     /// the bitmap's last word. That rules out power buttons, laptop hotkey
     /// devices and media-key interfaces, which have only a few keys.
     fn is_full_keyboard(&self) -> bool {
-        const ESC_TO_D: u64 = 0xffff_fffe;
+        const ESC_TO_S: u64 = 0xffff_fffe;
         let low_word = self.key_bits.split_whitespace().next_back().and_then(|w| u64::from_str_radix(w, 16).ok());
-        low_word.is_some_and(|w| w & ESC_TO_D == ESC_TO_D)
+        low_word.is_some_and(|w| w & ESC_TO_S == ESC_TO_S)
     }
 
     /// What makes interfaces the same physical keyboard: where it's attached
