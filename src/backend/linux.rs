@@ -42,11 +42,13 @@ impl LinuxBackend {
         let keyboards = list_keyboards()?;
         // Opening a device is where missing permission shows up. If keyboards
         // exist but none can be opened, say so, instead of reporting an empty
-        // keyboard list that looks like "no keyboards".
+        // keyboard list that looks like "no keyboards". Only main interfaces
+        // count: desktops often grant access to a keyboard's extra interfaces
+        // (udev can classify one as a joystick), but those alone aren't read.
         if !keyboards.is_empty() {
             let mut first_error = None;
             let mut opened = false;
-            for kb in &keyboards {
+            for kb in keyboards.iter().filter(|kb| kb.main) {
                 match File::open(&kb.path) {
                     Ok(_) => {
                         opened = true;
@@ -97,6 +99,9 @@ struct Found {
     vendor_id: Option<u16>,
     product_id: Option<u16>,
     phys: Option<String>,
+    /// A full keyboard interface, as opposed to a keyboard's media or
+    /// system-key interface, which is only read alongside a main one.
+    main: bool,
     /// Which physical keyboard this interface belongs to. A composite USB
     /// keyboard has several interfaces (main keys, an NKRO report, System
     /// Control, Consumer Control); they share a group and so one KeyboardId.
@@ -201,13 +206,14 @@ impl<'a> DeviceBlock<'a> {
     /// (`phys` without its `/inputN` interface suffix), its USB ids, and `uniq`.
     /// For USB the attachment point is the port; for Bluetooth `phys` is the
     /// adapter's address, shared by every device on it, and `uniq` is the
-    /// device's own address. Without `phys` (virtual devices) interfaces are
-    /// never merged.
+    /// device's own address. Without `phys` (virtual devices) each event node is
+    /// its own keyboard: two virtual keyboards can share a name and ids, and
+    /// they have no physical identity to keep across replugging anyway.
     fn group(&self) -> String {
-        let ids = format!("{:?}|{:?}|{}", self.vendor_id, self.product_id, self.uniq);
         if self.phys.is_empty() {
-            return format!("name:{}|{ids}", self.name);
+            return format!("node:{}", self.event_node().unwrap_or_default());
         }
+        let ids = format!("{:?}|{:?}|{}", self.vendor_id, self.product_id, self.uniq);
         let device = match self.phys.rsplit_once("/input") {
             Some((base, n)) if !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => base,
             _ => self.phys,
@@ -222,6 +228,7 @@ impl<'a> DeviceBlock<'a> {
             vendor_id: self.vendor_id,
             product_id: self.product_id,
             phys: Some(self.phys.to_string()).filter(|p| !p.is_empty()),
+            main: self.is_full_keyboard(),
             group: self.group(),
         }
     }
@@ -242,6 +249,12 @@ fn scan_loop(tx: EventSink, stop: Arc<AtomicBool>, release_on_unplug: bool) {
     while !stop.load(Ordering::Relaxed) {
         for kb in list_keyboards().unwrap_or_default() {
             if active.lock().unwrap().contains(&kb.path) {
+                continue;
+            }
+            // Extra interfaces join a keyboard whose main interface is open
+            // (main ones come first in the list). Alone, they'd announce the
+            // keyboard under the wrong name and report only its media keys.
+            if !kb.main && !ids.get(&kb.group).is_some_and(|id| open.lock().unwrap().contains_key(id)) {
                 continue;
             }
             let Ok(file) = File::open(&kb.path) else { continue };
@@ -266,15 +279,20 @@ fn scan_loop(tx: EventSink, stop: Arc<AtomicBool>, release_on_unplug: bool) {
             let (tx, stop, active, open, path) = (tx.clone(), stop.clone(), active.clone(), open.clone(), kb.path);
             readers.push(thread::spawn(move || {
                 read_device(file, id, &tx, &stop, release_on_unplug);
-                active.lock().unwrap().remove(&path);
-                let mut open = open.lock().unwrap();
-                if let Some(count) = open.get_mut(&id) {
-                    *count -= 1;
-                    if *count == 0 {
-                        open.remove(&id);
-                        tx.send(Event::KeyboardRemoved(id));
+                // Close our interface before giving up the path: if the scan
+                // reopened the path first, the count would never reach zero and
+                // the removal (and re-add) would go unreported.
+                {
+                    let mut open = open.lock().unwrap();
+                    if let Some(count) = open.get_mut(&id) {
+                        *count -= 1;
+                        if *count == 0 {
+                            open.remove(&id);
+                            tx.send(Event::KeyboardRemoved(id));
+                        }
                     }
                 }
+                active.lock().unwrap().remove(&path);
             }));
         }
         thread::sleep(Duration::from_millis(500));
@@ -483,6 +501,8 @@ B: KEY=1000000000007 ff98007a000007ff febeffdfffefffff fffffffffffffffe
             ]
         );
         assert_eq!(found[1].name, "USB Keyboard");
+        let main: Vec<bool> = found.iter().map(|f| f.main).collect();
+        assert_eq!(main, [true, true, true, true, false, false, false, false]);
     }
 
     #[test]
@@ -515,14 +535,15 @@ B: KEY=1000000000007 ff98007a000007ff febeffdfffefffff fffffffffffffffe
 
     #[test]
     fn devices_without_phys_are_never_merged() {
-        // uinput devices (as in CI) have an empty phys.
-        let block = |name: &str, ev: u32| {
+        // uinput devices (as in CI) have an empty phys. Two with the same name
+        // and ids, as two instances of one remapper would have, are still two.
+        let block = |ev: u32| {
             format!(
-                "I: Bus=0003 Vendor=1234 Product=5678 Version=0001\nN: Name=\"{name}\"\nP: Phys=\nU: Uniq=\n\
+                "I: Bus=0003 Vendor=1234 Product=5678 Version=0001\nN: Name=\"virtual\"\nP: Phys=\nU: Uniq=\n\
                  H: Handlers=sysrq kbd event{ev}\nB: KEY=ff ffffffffffffffff fffffffffffffffe\n"
             )
         };
-        let found = parse_keyboards(&format!("{}\n{}", block("one", 30), block("two", 31)));
+        let found = parse_keyboards(&format!("{}\n{}", block(30), block(31)));
         assert_eq!(found.len(), 2);
         assert_ne!(found[0].group, found[1].group);
     }

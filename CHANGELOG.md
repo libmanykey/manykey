@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - **Godot extension (experimental):** a `ManyKeyboard` node that reports which keyboard each key came from, with signals and queries, in `bindings/godot`. Builds from source only; not yet released as an addon.
 
+### Fixed
+
+- **Linux:** two virtual keyboards with the same name and ids (for example two instances of one remapper) are now two keyboards instead of one (#7).
+- **Linux:** when only a keyboard's extra interface can be opened (desktops grant access to ones udev classifies as joysticks, such as the ZSA Moonlander's System Control interface), manykey no longer reports it as the keyboard under that interface's name; such interfaces are only read alongside the keyboard's main one, and the permission error is shown as before.
+- **Linux:** closed a small race in which a keyboard's removal and re-addition could go unreported (#8).
+- **`manykey` command line tool:** `--help` and `-h` print the usage text to stdout and exit with status 0; usage errors still go to stderr with status 2 (#9).
+
 ## [0.1.1] - 2026-10-12
 
 ### Fixed

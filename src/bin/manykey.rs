@@ -1,10 +1,11 @@
 use manykey::{BackendKind, Event, EventOrigin, KeyState, Listener, Options};
 use std::time::{Duration, Instant};
 
+const USAGE: &str = "usage: manykey <list|watch> [--include-injected] [--backend NAME]\n       manykey --version\n       manykey --help\n  list   show connected keyboards\n  watch  print keyboards and key events as they happen\n\n  --include-injected  also report software-injected input (Windows)\n  --backend NAME      auto (default), raw-input (Windows) or evdev (Linux)";
+
+/// A usage error: the usage text on stderr, exit status 2.
 fn usage() -> ! {
-    eprintln!(
-        "usage: manykey <list|watch> [--include-injected] [--backend NAME]\n       manykey --version\n  list   show connected keyboards\n  watch  print keyboards and key events as they happen\n\n  --include-injected  also report software-injected input (Windows)\n  --backend NAME      auto (default), raw-input (Windows) or evdev (Linux)"
-    );
+    eprintln!("{USAGE}");
     std::process::exit(2)
 }
 
@@ -17,9 +18,11 @@ fn id_str(vid: Option<u16>, pid: Option<u16>) -> String {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        return println!("{USAGE}");
+    }
     if matches!(args.first().map(String::as_str), Some("--version" | "-V")) {
-        println!("manykey {}", env!("CARGO_PKG_VERSION"));
-        return;
+        return println!("manykey {}", env!("CARGO_PKG_VERSION"));
     }
     // Check the command before opening any devices, so a typo or --help gets
     // the usage text rather than (on Linux without permission) an access error.
