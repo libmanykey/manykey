@@ -1,0 +1,4 @@
+# Built libraries are copied here by build.ps1 / build.sh; never committed.
+/demo/addons/manykey/bin/
+# Godot's per-project cache.
+/demo/.godot/

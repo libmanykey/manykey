@@ -50,6 +50,7 @@ With two keyboards attached, each keystroke carries its own `keyboard` number; t
 - [What manykey does to your program](#what-manykey-does-to-your-program) (please read)
 - [Linux permissions](#linux-permissions)
 - [Limitations and FAQ](#limitations-and-faq)
+- [Godot](#godot)
 - [The viewer app](#the-viewer-app)
 - [Building and testing](#building-and-testing)
 - [Alternatives and prior art](#alternatives-and-prior-art)
@@ -319,6 +320,10 @@ Reading `/dev/input/event*` normally needs membership of the `input` group (or a
 
 **Is `KeyboardId` the same on every run?** No. Use `KeyboardInfo` to recognise keyboards across runs.
 
+## Godot
+
+`bindings/godot` contains an **experimental** Godot extension: a `ManyKeyboard` node whose signals tell your game which keyboard each key came from, so a local multiplayer game can give every player their own keyboard. It builds from source and has been run in Godot 4.7.2 on Windows (headless, with injected keys); it is not released as an addon yet. See [its README](https://github.com/libmanykey/manykey/blob/HEAD/bindings/godot/README.md).
+
 ## The viewer app
 
 `apps/keyboard-view` is a small egui app that doubles as the best way to see what manykey does: one tile per connected keyboard, each drawing a keyboard whose keys light up as they're pressed, with a typing box per keyboard.
@@ -379,7 +384,7 @@ Roughly in order, and subject to change:
 - A shared Windows backend so several `Listener`s in one process don't compete.
 - `keyboards()` for synchronous inventory, and `held_keys()` snapshots for recovering from overflow.
 - Windows support for HID Consumer-page keys (brightness and friends).
-- Bindings and packaging: Python, a Godot extension, .NET, Debian packages.
+- Bindings and packaging: a released Godot addon (an experimental one is in the repository), Python, .NET, Debian packages.
 
 ## AI use in development
 

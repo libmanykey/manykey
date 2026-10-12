@@ -1,0 +1,10 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.3
+reloadable = false
+
+[libraries]
+windows.debug.x86_64 =   "res://addons/manykey/bin/debug/manykey_godot.dll"
+windows.release.x86_64 = "res://addons/manykey/bin/release/manykey_godot.dll"
+linux.debug.x86_64 =     "res://addons/manykey/bin/debug/libmanykey_godot.so"
+linux.release.x86_64 =   "res://addons/manykey/bin/release/libmanykey_godot.so"

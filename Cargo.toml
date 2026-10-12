@@ -39,5 +39,5 @@ windows-sys = { version = "0.61", features = [
 libc = "0.2"
 
 [workspace]
-members = [".", "apps/keyboard-view"]
+members = [".", "apps/keyboard-view", "bindings/godot"]
 default-members = ["."]

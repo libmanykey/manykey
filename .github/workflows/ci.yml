@@ -109,3 +109,25 @@ jobs:
       - run: sudo modprobe uinput || true
       - run: ls -l /dev/uinput
       - run: sudo python3 ci/linux-uinput-smoke.py target/debug/manykey
+
+  # The Godot extension (bindings/godot). Compiling gdext is slow the first time and cached afterwards.
+  godot-extension:
+    name: godot extension (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: stable
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - run: cargo build -p manykey-godot
+      - run: cargo test -p manykey-godot
+      - name: Clippy
+        if: runner.os == 'Linux'
+        run: cargo clippy -p manykey-godot --all-targets -- -D warnings

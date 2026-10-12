@@ -1,0 +1,16 @@
+[package]
+name = "manykey-godot"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Godot extension (GDExtension) that reports which keyboard each key came from, built on manykey"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+manykey = { path = "../.." }
+# The API feature picks the oldest Godot this extension supports: an extension
+# built against an older API runs in newer Godot versions (not the reverse).
+godot = { version = "0.5", features = ["api-4-3"] }

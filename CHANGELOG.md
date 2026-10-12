@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Godot extension (experimental):** a `ManyKeyboard` node that reports which keyboard each key came from, with signals and queries, in `bindings/godot`. Builds from source only; not yet released as an addon.
+
 ## [0.1.0] - 2026-10-10
 
 First public release: an early prototype. Only the Windows backend has been run on real keyboards; see the README's status section for exactly what has and hasn't been tested.
