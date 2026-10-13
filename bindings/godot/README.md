@@ -4,7 +4,7 @@ A Godot extension (GDExtension) that tells your game **which physical keyboard e
 
 ![The demo on Linux with three keyboards: each has its own square, moved with its own WASD or arrow keys](../../docs/images/godot-screenshot.png)
 
-> **Status: experimental, not released yet.** It builds from source in this repository. It has been tested in Godot 4.7.2 headless: on Windows with injected key presses, and on Linux (Debian, X11) with three real keyboards, including held keys, both Shift keys and key repeat. It has not yet been tested interactively in the editor, or with several real keyboards on Windows. The README of the main project describes manykey's own tested and untested areas.
+> **Status: experimental, not released yet.** It builds from source in this repository. It has been tested in Godot 4.7.2 headless: on Windows with injected key presses, and on Linux (Debian, X11) with three real keyboards, including held keys, both Shift keys and key repeat. CI runs it on Godot 4.3 and 4.7.2 against virtual keyboards on Linux. It has not yet been tested interactively in the editor, or with several real keyboards on Windows. The README of the main project describes manykey's own tested and untested areas.
 
 ## What you get
 
@@ -76,7 +76,7 @@ To use it in your own project, copy `demo/addons/manykey/` (with its `bin/` fold
 
 ### Which Godot versions
 
-The extension is compiled against Godot's 4.3 API, and Godot runs extensions built for an older API in newer versions, so it declares 4.3 as its minimum. It has been run on Godot 4.7.2 only; other versions are untested.
+The extension is compiled against Godot's 4.3 API, and Godot runs extensions built for an older API in newer versions, so it declares 4.3 as its minimum. CI runs it on Godot 4.3 and 4.7.2 (Linux, virtual keyboards); other versions are untested.
 
 ## Limits
 
