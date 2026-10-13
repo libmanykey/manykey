@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Godot extension (experimental):** a `ManyKeyboard` node that reports which keyboard each key came from, with signals and queries, in `bindings/godot`. Builds from source only; not yet released as an addon.
+
 ### Fixed
 
 - **Linux:** two virtual keyboards with the same name and ids (for example two instances of one remapper) are now two keyboards instead of one (#7).

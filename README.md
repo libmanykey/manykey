@@ -34,7 +34,7 @@ With two keyboards attached, each keystroke carries its own `keyboard` number; t
 
 **Where it's useful:** local multiplayer games where each player has their own keyboard; macro and control surfaces (a spare keyboard or keypad that means something different from your main one); installations and kiosks; input diagnostics; anything that cares which physical device produced an input.
 
-> **Early prototype.** On Windows, run on one machine with a built-in keyboard, a USB keyboard and a ZSA Moonlander typing at the same time, and in CI with injected key presses. On Linux, run on one Debian machine with a USB keyboard and the Moonlander, and in CI with virtual keyboards. Hot-plugging has been tested with the Moonlander on both. Two identical keyboards, media keys on Linux, and Linux key repeat on physical keyboards are untested. The API will change before 1.0. There are no Python or other-language packages yet. Per-backend details are under [Backends](#backends).
+> **Early prototype.** On Windows, run on one machine with a built-in keyboard, a USB keyboard and a ZSA Moonlander typing at the same time, and in CI with injected key presses. On Linux, run on one Debian machine with a USB keyboard and the Moonlander, and in CI with virtual keyboards. Hot-plugging has been tested with the Moonlander on both. Two identical keyboards and media keys on Linux are untested. The API will change before 1.0. There are no Python or other-language packages yet. Per-backend details are under [Backends](#backends).
 >
 > Throughout this document, **Tested** means it was run on real hardware (see the limits above), **Tested (virtual)** means it was run in CI against virtual keyboards but not physical ones, **Builds** means it compiles but hasn't been run, and **Planned** or **Idea** means it doesn't exist yet.
 
@@ -50,6 +50,7 @@ With two keyboards attached, each keystroke carries its own `keyboard` number; t
 - [What manykey does to your program](#what-manykey-does-to-your-program) (please read)
 - [Linux permissions](#linux-permissions)
 - [Limitations and FAQ](#limitations-and-faq)
+- [Godot](#godot)
 - [The viewer app](#the-viewer-app)
 - [Building and testing](#building-and-testing)
 - [Alternatives and prior art](#alternatives-and-prior-art)
@@ -175,7 +176,7 @@ manykey is organized around **backends**. A backend is the piece that talks to o
 
 ### Linux: evdev
 
-*Status: tested on one Debian machine (X11) with a USB keyboard and a ZSA Moonlander, and in CI with virtual keyboards.* On that machine, `manykey watch` and the viewer reported both keyboards, overlapping key presses, and unplugging and replugging the Moonlander, which came back with the same `KeyboardId`. A key held while unplugging was released; a key already held while plugging in is not reported until it's released (the kernel only reports changes). Media keys and key repeat haven't been tried on physical keyboards. In GitHub's Linux CI the backend found a keyboard with its kernel name and ids, reported press, repeat and release, announced a second keyboard plugged in while running, and reported both removals. The evdev backend reads the kernel's `/dev/input/event*` devices directly, on one thread per keyboard, and rescans `/proc/bus/input/devices` twice a second to notice keyboards being plugged and unplugged.
+*Status: tested on one Debian machine (X11) with a USB keyboard and a ZSA Moonlander, and in CI with virtual keyboards.* On that machine, `manykey watch` and the viewer reported both keyboards, overlapping key presses, and unplugging and replugging the Moonlander, which came back with the same `KeyboardId`. A key held while unplugging was released; a key already held while plugging in is not reported until it's released (the kernel only reports changes). Key repeat was reported as `Repeat` (seen through the Godot extension). Media keys haven't been tried on physical keyboards. In GitHub's Linux CI the backend found a keyboard with its kernel name and ids, reported press, repeat and release, announced a second keyboard plugged in while running, and reported both removals. The evdev backend reads the kernel's `/dev/input/event*` devices directly, on one thread per keyboard, and rescans `/proc/bus/input/devices` twice a second to notice keyboards being plugged and unplugged.
 
 - **Needs read access to the input devices**, normally membership of the `input` group. See [Linux permissions](#linux-permissions); this is a real cost.
 - **Works under X11, Wayland and the text console**, because it doesn't talk to the display server at all. That also means it has **no idea which window has focus**, so `OwnProcessFocused` returns an error instead of silently reporting everything.
@@ -320,6 +321,10 @@ Reading `/dev/input/event*` normally needs membership of the `input` group (or a
 
 **Is `KeyboardId` the same on every run?** No. Use `KeyboardInfo` to recognise keyboards across runs.
 
+## Godot
+
+`bindings/godot` contains an **experimental** Godot extension: a `ManyKeyboard` node whose signals tell your game which keyboard each key came from, so a local multiplayer game can give every player their own keyboard. It builds from source and has been run headless in Godot 4.7.2 on Windows (with injected keys) and Linux (with real keyboards); it is not released as an addon yet. See [its README](https://github.com/libmanykey/manykey/blob/HEAD/bindings/godot/README.md).
+
 ## The viewer app
 
 `apps/keyboard-view` is a small egui app that doubles as the best way to see what manykey does: one tile per connected keyboard, each drawing a keyboard whose keys light up as they're pressed, with a typing box per keyboard.
@@ -382,7 +387,7 @@ Roughly in order, and subject to change:
 - A shared Windows backend so several `Listener`s in one process don't compete.
 - `keyboards()` for synchronous inventory, and `held_keys()` snapshots for recovering from overflow.
 - Windows support for HID Consumer-page keys (brightness and friends).
-- Bindings and packaging: Python, a Godot extension, .NET, Debian packages.
+- Bindings and packaging: a released Godot addon (an experimental one is in the repository), Python, .NET, Debian packages.
 
 ## AI use in development
 
